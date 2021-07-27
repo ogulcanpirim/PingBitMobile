@@ -37,15 +37,8 @@ const videoCallScreen = (props) => {
     );
   }
 
-  const providerProps = {
-    rtcProps: props.rtcProps,
-    styleProps: props.styleProps,
-    callbacks: callbacks,
-  };
-
-  
-  return(
-      <SafeAreaView>
+  return (
+    <SafeAreaView>
       {videoCall ? (
         <>
           <AgoraUIKit
@@ -56,7 +49,7 @@ const videoCallScreen = (props) => {
         </>
       ) : null}
     </SafeAreaView>
-      );
+  );
 
 };
 

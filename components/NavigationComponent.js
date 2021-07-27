@@ -11,6 +11,7 @@ import HomeScreen from '../screens/HomeScreen';
 import ScheduleScreen from '../screens/ScheduleScreen';
 import ChatScreen from '../screens/ChatScreen';
 import VideoCallScreen from '../screens/VideoCallScreen';
+import CustomVideoScreen from '../screens/CustomVideoScreen';
 
 
 const Stack = createStackNavigator();
@@ -39,14 +40,14 @@ const MyStack = (props) => {
     return (
         <Stack.Navigator>
             <Stack.Screen
-                name= "Home"
+                name="Schedules"
                 component={BottomNavigator}
                 options={{
                     headerShown: false,
                 }}
             />
             <Stack.Screen name="Chat" component={ChatScreen} />
-            <Stack.Screen name="VideoCall" options={{headerShown: false}} component={VideoCallScreen} />
+            <Stack.Screen name="VideoCall" options={{ headerShown: false }} component={CustomVideoScreen} />
         </Stack.Navigator>
     )
 }

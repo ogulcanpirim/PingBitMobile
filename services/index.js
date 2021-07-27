@@ -5,7 +5,14 @@ import thunk from "redux-thunk";
 import RNFetchBlob from 'rn-fetch-blob';
 import { Alert, Platform } from "react-native";
 import { layout, mode } from "agora-rn-uikit";
-import { VideoRenderMode } from "react-native-agora";
+import RtcEngine, {
+    ChannelProfile,
+    ClientRole,
+    RtcEngineConfig,
+    RtcLocalView,
+    RtcRemoteView,
+    VideoRenderMode,
+} from 'react-native-agora';
 
 //axios.defaults.headers.common = {'Authorization': `Bearer ${token}`}
 
@@ -386,8 +393,12 @@ export const onVideoLoad = (scheduleId, props) => async (dispatch) => {
 
 }
 
-export const closeVideo = () => (dispatch) => {
+export const closeVideo = () => async (dispatch) => {
+
+    await dispatch(engineUnmount());
     dispatch({ type: "VIDEO_CLOSE" });
+    dispatch({ type: "DEL_VIDEO_USERS" });
+    dispatch({ type: "MEETING_USER_LOAD", isMeetingUser: false })
 }
 
 
@@ -435,14 +446,13 @@ export const uploadPicture = (image) => async (dispatch) => {
 
 }
 
-export const checkVideoUser = (scheduleId, userId) => async (dispatch) => {
-
-    console.log("userId: " + userId);
+export const checkMeetingUser = (scheduleId, uid, meetingUserId) => async (dispatch) => {
 
     const userData = await AsyncStorage.getItem("USER_DATA");
     const userJSON = JSON.parse(userData);
 
-    const getURL = "https://pingbitplatform.com/api/schedules/" + scheduleId + "/" + userId + "/user";
+
+    const getURL = "https://pingbitplatform.com/api/schedules/" + scheduleId + "/" + uid + "/user/";
 
     await RNFetchBlob.config({
         trusty: true,
@@ -453,13 +463,15 @@ export const checkVideoUser = (scheduleId, userId) => async (dispatch) => {
             'Authorization': `Bearer ${userJSON.token}`,
         })
         .then(function (response) {
-
             const responseData = JSON.parse(response?.data);
-            console.log("responseData: " + JSON.stringify(responseData));
             if (responseData.error == null && responseData.status == 200) {
-                dispatch(changeLayout(userId, responseData.message.data));
-            }
-            else {
+                //Screen share
+                if (responseData.message.data.result == "screen") {
+                    dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, screenId: uid, isMeetingUser: false });
+                }
+                else {
+                    dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, cameraId: uid, isMeetingUser: responseData.message.data.user.id == meetingUserId });
+                }
 
             }
 
@@ -468,31 +480,6 @@ export const checkVideoUser = (scheduleId, userId) => async (dispatch) => {
         });
 
 }
-
-
-const changeLayout = (userId, data) => async (dispatch) => {
-
-
-    // Open Camera
-    if (data.result == "camera") {
-
-        //Meeting User
-        if (data.cameraId == userId) {
-
-        }
-        //Contributer,patient
-        else {
-
-        }
-    }
-    // Share Screen 
-    else {
-        //changeFullScreen
-    }
-    //
-
-}
-
 
 //Functions
 const storeUserData = async (userData) => {
@@ -511,39 +498,142 @@ const deleteUserData = async () => {
     }
 }
 
-const setVideoInfo = (data) => (dispatch) => {
-
-
-    //set doctor || meeting user
-    dispatch({ type: "MEETING_USER_LOAD", id: data.schedule.meetingUser.id });
+const setVideoInfo = (data) => async (dispatch) => {
 
     const rtcProps = {
         appId: data.appId,
         channel: data.schedule.id.toString(),
         uid: data.token.cameraId,
         token: data.token.cameraToken,
-        enableAudio: false,
-        enableVideo: false,
-        layout: layout.grid,
+        enableAudio: true,
+        enableVideo: true,
+        switchCamera: true,
     };
 
+    //Init Engine
+    const rtcEngine = await RtcEngine.createWithConfig(
+        new RtcEngineConfig(rtcProps.appId)
+    );
 
-    const styleProps = {
-        styleProps: {
-            iconSize: 30,
-            theme: '#ffffffee',
-            videoMode: {
-                max: VideoRenderMode.Hidden,
-                min: VideoRenderMode.Hidden,
-            },
-            gridVideoView: {
-                display: 'none',
+    await rtcEngine.enableVideo();
+    await rtcEngine.startPreview();
+    await rtcEngine.setChannelProfile(ChannelProfile.LiveBroadcasting);
+    await rtcEngine.setClientRole(ClientRole.Broadcaster);
+
+
+    //Add engine listeners
+    rtcEngine.addListener('JoinChannelSuccess', (channel, uid, elapsed) => {
+        console.info('JoinChannelSuccess', channel, uid, elapsed);
+
+    });
+    rtcEngine.addListener('UserJoined', async (uid, elapsed) => {
+
+        //check for doctor || meetingUser
+        await dispatch(checkMeetingUser(data.schedule.id, uid, data.schedule.meetingUser.id));
+        const isMeetingUser = store.getState().videoMeetingUser.isMeetingUser;
+        console.log("isMeetingUser: " + store.getState().videoMeetingUser.isMeetingUser);
+        if (!isMeetingUser) {
+            dispatch({ type: 'NEW_VIDEO_USER', videoUsers: uid });
+        }
+        else {
+            //doctor joined !
+        }
+        console.info('UserJoined', uid, elapsed);
+    });
+    rtcEngine.addListener('UserOffline', async (uid, reason) => {
+
+        const videoUsers = store.getState().videoUserReducer.videoUsers;
+        //remove User
+        await dispatch(checkMeetingUser(data.schedule.id, uid, data.schedule.meetingUser.id));
+
+        const isMeetingUser = store.getState().videoMeetingUser.isMeetingUser;
+        const isScreen = store.getState().videoMeetingUser.screenId == uid;
+        if (isScreen) {
+            console.log("screen will close....");
+            dispatch({ type: "MEETING_USER_LOAD", screenId: -1 });
+        }
+
+        else if (!isMeetingUser) {
+            var index = videoUsers?.indexOf(uid);
+            if (index !== -1) {
+                dispatch({type: "USER_LOAD", videoUsers: videoUsers.length == 0 ? [] : videoUsers});
             }
-        },
-    };
+        }
 
-    dispatch({ type: 'VIDEO_LOAD', rtcProps: rtcProps, styleProps: styleProps });
+        else {
+            dispatch({ type: "MEETING_USER_LOAD", isMeetingUser: false });
+        }
+        console.info('UserOffline', uid, reason);
+        console.log("screenId >>: " + store.getState().videoMeetingUser.screenId);
+    });
+    rtcEngine.addListener('LeaveChannel', (stats) => {
+        console.info('LeaveChannel', stats);
+    });
+
+
+    dispatch({ type: 'VIDEO_LOAD', rtcProps: rtcProps, rtcEngine: rtcEngine });
+
+    await rtcEngine.joinChannel(
+        rtcProps.token,
+        rtcProps.channel,
+        null,
+        rtcProps.uid
+    );
+
 }
+export const closeCamera = () => async (dispatch) => {
+
+    const rtcEngine = store.getState().videoReducer.rtcEngine;
+    const rtcProps = store.getState().videoReducer.rtcProps;
+    if (rtcProps.enableVideo) {
+        await rtcEngine.disableVideo();
+        await rtcEngine.stopPreview();
+    }
+    else {
+        await rtcEngine.enableVideo();
+        await rtcEngine.startPreview();
+    }
+
+    rtcProps.enableVideo = !rtcProps.enableVideo;
+    dispatch({ type: 'VIDEO_LOAD', rtcProps: rtcProps, rtcEngine: rtcEngine, loading: false });
+}
+
+export const closeAudio = () => async (dispatch) => {
+
+    const rtcEngine = store.getState().videoReducer.rtcEngine;
+    const rtcProps = store.getState().videoReducer.rtcProps;
+
+    if (rtcProps.enableAudio) {
+        await rtcEngine.disableAudio();
+    }
+    else {
+        await rtcEngine.enableAudio();
+    }
+
+    rtcProps.enableAudio = !rtcProps.enableAudio;
+    dispatch({ type: 'VIDEO_LOAD', rtcProps: rtcProps, rtcEngine: rtcEngine, loading: false });
+}
+
+export const switchCamera = () => async (dispatch) => {
+
+    const rtcEngine = store.getState().videoReducer.rtcEngine;
+    const rtcProps = store.getState().videoReducer.rtcProps;
+
+    await rtcEngine.switchCamera();
+
+    rtcProps.switchCamera = !rtcProps.switchCamera;
+
+    dispatch({ type: 'VIDEO_LOAD', rtcProps: rtcProps, rtcEngine: rtcEngine, loading: false });
+}
+
+const engineUnmount = () => async () => {
+
+    const rtcEngine = store.getState().videoReducer.rtcEngine;
+    await rtcEngine?.leaveChannel();
+    await rtcEngine?.destroy();
+};
+
+
 //Reducers
 
 export const userReducer = (state = {}, action) => {
@@ -658,7 +748,7 @@ export const videoReducer = (state = { loading: true }, action) => {
             return {
                 ...state,
                 rtcProps: action.rtcProps,
-                styleProps: action.styleProps,
+                rtcEngine: action.rtcEngine,
                 loading: false,
             };
         case 'VIDEO_CLOSE':
@@ -666,6 +756,7 @@ export const videoReducer = (state = { loading: true }, action) => {
                 ...state,
                 loading: true,
                 rtcProps: null,
+                rtcEngine: null,
             }
         default:
             return state;
@@ -675,26 +766,36 @@ export const videoReducer = (state = { loading: true }, action) => {
 export const videoUserReducer = (state = {}, action) => {
 
     switch (action.type) {
-        case 'USER_VIDEO_LOAD':
+        case 'USER_LOAD':
             return {
                 ...state,
-                enableAudio: action.enableAudio,
-                enableVideo: action.enableVideo,
+                videoUsers: [action.videoUsers],
+            }
+        case 'NEW_VIDEO_USER':
+            return {
+                ...state,
+                videoUsers: state.videoUsers === undefined ? [action.videoUsers] : [...action.videoUsers, ...state.videoUsers],
+            }
+        case 'DEL_VIDEO_USERS':
+            return {
+                ...state,
+                videoUsers: undefined,
             }
         default:
             return state;
     }
 }
 
-export const videoMeetingUser = (state = {}, action) => {
+export const videoMeetingUser = (state = { isMeetingUser: false, screenId: -1 }, action) => {
 
     switch (action.type) {
         case 'MEETING_USER_LOAD':
             return {
                 ...state,
-                id: action.id,
-                cameraId: action.cameraId,
-                screenId: action.screenId,
+                isMeetingUser: action.isMeetingUser === undefined ? state.isMeetingUser : action.isMeetingUser,
+                meetingUserId: action.meetingUserId === undefined ? state.meetingUserId : action.meetingUserId,
+                cameraId: action.cameraId === undefined ? state.meetingUserId : action.cameraId,
+                screenId: action.screenId === undefined ? -1 : action.screenId,
             }
         default:
             return state;
@@ -712,6 +813,7 @@ export const rootReducer = combineReducers({
     chatUserReducer: chatUserReducer,
     videoReducer: videoReducer,
     videoUserReducer: videoUserReducer,
+    videoMeetingUser: videoMeetingUser,
 });
 
 //Store
