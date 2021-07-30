@@ -9,9 +9,6 @@ import RtcEngine, {
     ChannelProfile,
     ClientRole,
     RtcEngineConfig,
-    RtcLocalView,
-    RtcRemoteView,
-    VideoRenderMode,
 } from 'react-native-agora';
 
 //axios.defaults.headers.common = {'Authorization': `Bearer ${token}`}
@@ -465,14 +462,20 @@ export const checkMeetingUser = (scheduleId, uid, meetingUserId) => async (dispa
         .then(function (response) {
             const responseData = JSON.parse(response?.data);
             if (responseData.error == null && responseData.status == 200) {
-                //Screen share
-                if (responseData.message.data.result == "screen") {
-                    dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, screenId: uid, isMeetingUser: false });
-                }
-                else {
-                    dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, cameraId: uid, isMeetingUser: responseData.message.data.user.id == meetingUserId });
-                }
 
+                //Doctor connection
+                if (responseData.message.data.user.id == meetingUserId){
+                    
+                    console.log(">>> check function uid: " + uid);
+                    //Screen share 
+                    if (responseData.message.data.result == "screen"){
+                        dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, screenId: uid, isMeetingUser: true });
+                    }
+                    //Camera share
+                    else {
+                        dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, cameraId: uid, isMeetingUser: true });
+                    }
+                }
             }
 
         }).catch(function (error) {
@@ -528,43 +531,61 @@ const setVideoInfo = (data) => async (dispatch) => {
     });
     rtcEngine.addListener('UserJoined', async (uid, elapsed) => {
 
-        //check for doctor || meetingUser
+        //check for doctor || meetingUser (camera && screen)
         await dispatch(checkMeetingUser(data.schedule.id, uid, data.schedule.meetingUser.id));
+        
         const isMeetingUser = store.getState().videoMeetingUser.isMeetingUser;
-        console.log("isMeetingUser: " + store.getState().videoMeetingUser.isMeetingUser);
+        const isScreen = store.getState().videoMeetingUser.screenId > 0;
+        
+        console.log(">>isMeetingUser: " + isMeetingUser);
+        console.log(">>isScreen: " + isScreen);
+
         if (!isMeetingUser) {
-            dispatch({ type: 'NEW_VIDEO_USER', videoUsers: uid });
+            console.log("doktor olmayan geldi !!!");
+            await dispatch({ type: 'NEW_VIDEO_USER', videoUsers: uid });
         }
         else {
-            //doctor joined !
+            //doctor joined (camera or screen)!
         }
+
         console.info('UserJoined', uid, elapsed);
+        const videoUsersDebug = store.getState().videoUserReducer.videoUsers;
+        console.log("videoUsersDebug Length: " + videoUsersDebug);
+
     });
     rtcEngine.addListener('UserOffline', async (uid, reason) => {
 
         const videoUsers = store.getState().videoUserReducer.videoUsers;
-        //remove User
-        await dispatch(checkMeetingUser(data.schedule.id, uid, data.schedule.meetingUser.id));
-
-        const isMeetingUser = store.getState().videoMeetingUser.isMeetingUser;
+        
+        const isMeetingUser = store.getState().videoMeetingUser.cameraId == uid;
         const isScreen = store.getState().videoMeetingUser.screenId == uid;
+        
+        console.log(">>> isMeetingUser:"  + isMeetingUser);
+        console.log(">>> isScreen: " + isScreen);
+
         if (isScreen) {
             console.log("screen will close....");
-            dispatch({ type: "MEETING_USER_LOAD", screenId: -1 });
+            await dispatch({ type: "MEETING_USER_LOAD", screenId: -1 });
+            console.log("after screen dispatch >>> reducer.cameraId: " + store.getState().videoMeetingUser.cameraId);
         }
 
         else if (!isMeetingUser) {
+            console.log("yine burda patladı !");
             var index = videoUsers?.indexOf(uid);
             if (index !== -1) {
-                dispatch({type: "USER_LOAD", videoUsers: videoUsers.length == 0 ? [] : videoUsers});
+                await dispatch({type: "VIDEO_USER_LOAD", videoUsers: videoUsers.length == 0 ? [] : videoUsers});
             }
         }
-
         else {
-            dispatch({ type: "MEETING_USER_LOAD", isMeetingUser: false });
+            //doctor deleted !
+            await dispatch({ type: "MEETING_USER_LOAD", isMeetingUser: false });
         }
+
         console.info('UserOffline', uid, reason);
-        console.log("screenId >>: " + store.getState().videoMeetingUser.screenId);
+        
+        const videoUsersDebug = store.getState().videoUserReducer.videoUsers;
+        console.log("videoUsersDebug Length: " + videoUsersDebug?.length);
+        
     });
     rtcEngine.addListener('LeaveChannel', (stats) => {
         console.info('LeaveChannel', stats);
@@ -585,6 +606,9 @@ export const closeCamera = () => async (dispatch) => {
 
     const rtcEngine = store.getState().videoReducer.rtcEngine;
     const rtcProps = store.getState().videoReducer.rtcProps;
+
+    //await rtcEngine.enableLocalVideo(rtcProps.enableVideo);
+
     if (rtcProps.enableVideo) {
         await rtcEngine.disableVideo();
         await rtcEngine.stopPreview();
@@ -766,7 +790,7 @@ export const videoReducer = (state = { loading: true }, action) => {
 export const videoUserReducer = (state = {}, action) => {
 
     switch (action.type) {
-        case 'USER_LOAD':
+        case 'VIDEO_USER_LOAD':
             return {
                 ...state,
                 videoUsers: [action.videoUsers],

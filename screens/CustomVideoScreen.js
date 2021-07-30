@@ -6,8 +6,6 @@ import { RtcLocalView, RtcRemoteView } from 'react-native-agora';
 
 const videoCallScreen = (props) => {
 
-    const [share, setShare] = useState(false);
-
     useEffect(() => {
         props.onVideoLoad(props.route.params.id, props);
         return () => {
@@ -61,22 +59,22 @@ const videoCallScreen = (props) => {
 
                     {/*Buttons*/}
                     <View style={styles.float}>
-                        <TouchableOpacity onPress={props.switchCamera}>
+                        <TouchableOpacity style={{backgroundColor: '#000000'}} onPress={props.switchCamera}>
                             <Text style={{ fontSize: 28, color: '#ffffff' }}>SWITCH</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={{ position: 'absolute', left: 0, bottom: 0 }}>
-                        <TouchableOpacity onPress={props.closeCamera}>
+                        <TouchableOpacity style={{backgroundColor: '#000000'}}onPress={props.closeCamera}>
                             <Text style={{ fontSize: 28, color: '#ffffff' }}>CAMERA</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={{ position: 'absolute', right: 0, top: 0 }}>
-                        <TouchableOpacity onPress={videoUnmount}>
+                        <TouchableOpacity style={{backgroundColor: '#000000'}} onPress={videoUnmount}>
                             <Text style={{ fontSize: 28, color: '#ffffff' }}>CLOSE</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={{ position: 'absolute', left: 0, top: 0 }}>
-                        <TouchableOpacity onPress={props.closeAudio}>
+                        <TouchableOpacity style={{backgroundColor: '#000000'}} onPress={props.closeAudio}>
                             <Text style={{ fontSize: 28, color: '#ffffff' }}>{props.rtcProps.enableAudio ? "" : "UN"}MUTE</Text>
                         </TouchableOpacity>
                     </View>
