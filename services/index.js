@@ -10,6 +10,7 @@ import RtcEngine, {
     ClientRole,
     RtcEngineConfig,
 } from 'react-native-agora';
+import { ActivityIndicatorComponent } from "react-native";
 
 //axios.defaults.headers.common = {'Authorization': `Bearer ${token}`}
 
@@ -525,7 +526,10 @@ const setVideoInfo = (data) => async (dispatch) => {
 
 
     //Add engine listeners
-    rtcEngine.addListener('JoinChannelSuccess', (channel, uid, elapsed) => {
+    rtcEngine.addListener('JoinChannelSuccess', async (channel, uid, elapsed) => {
+        
+        //Self uid
+        await dispatch({ type: 'VIDEO_USER_LOAD', videoUsers: uid , userUid: uid});
         console.info('JoinChannelSuccess', channel, uid, elapsed);
 
     });
@@ -534,12 +538,14 @@ const setVideoInfo = (data) => async (dispatch) => {
         //check for doctor || meetingUser (camera && screen)
         await dispatch(checkMeetingUser(data.schedule.id, uid, data.schedule.meetingUser.id));
 
-        const isMeetingUser = store.getState().videoMeetingUser.isMeetingUser;
+        const isMeetingUser = store.getState().videoMeetingUser.cameraId == uid;
         const isScreen = store.getState().videoMeetingUser.screenId > 0;
 
-        const cameraId = store.getState().videoMeetingUser.cameraId;
+        console.log(">>>isMeetingUser: " + isMeetingUser);
+        console.log(">>>isScreen: " + isScreen);
 
         if (!isMeetingUser) {
+            console.log("izleyici geldi !");
             await dispatch({ type: 'NEW_VIDEO_USER', videoUsers: uid });
         }
         else {
@@ -564,7 +570,7 @@ const setVideoInfo = (data) => async (dispatch) => {
         else if (!isMeetingUser) {
             var index = videoUsers?.indexOf(uid);
             if (index !== -1) {
-                await dispatch({ type: "VIDEO_USER_LOAD", videoUsers: videoUsers.length == 0 ? [] : videoUsers });
+                await dispatch({ type: "VIDEO_USER_LOAD", videoUsers: videoUsers?.length == 0 ? [] : videoUsers });
             }
         }
         else {
@@ -785,16 +791,21 @@ export const videoUserReducer = (state = {}, action) => {
             return {
                 ...state,
                 videoUsers: [action.videoUsers],
+                userUid: action.userUid === undefined ? state.userUid : action.userUid,
             }
         case 'NEW_VIDEO_USER':
+            console.log(">>>videoUsers state: " + typeof(state.videoUsers));
+            console.log(">>>videoUsers action: " + typeof(action.videoUsers));
             return {
                 ...state,
-                videoUsers: state.videoUsers === undefined ? [action.videoUsers] : [...action.videoUsers, ...state.videoUsers],
+                videoUsers: state.videoUsers === undefined ? [action.videoUsers] : [...state.videoUsers, action.videoUsers],
+                userUid: action.userUid === undefined ? state.userUid : action.userUid,
             }
         case 'DEL_VIDEO_USERS':
             return {
                 ...state,
                 videoUsers: undefined,
+                userUid: action.userUid === undefined ? state.userUid : action.userUid,
             }
         default:
             return state;

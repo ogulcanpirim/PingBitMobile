@@ -7,7 +7,7 @@ import { Dimensions } from 'react-native';
 
 const videoCallScreen = (props) => {
 
-    const [columns, setColumns] = useState(2);
+    const [self, setSelf] = useState(false);
 
     const data = [{ key: '#4287f5' }, { key: '#fc03db' }, { key: '#990a00' }, { key: '#2ce670' }, { key: '#ebcf34' }, { key: '#a6a498' }];
 
@@ -40,6 +40,11 @@ const videoCallScreen = (props) => {
 
         const cellHeight = Dimensions.get('window').height / divider;
 
+        console.log("length ==> " + props.videoUsers?.length);
+
+        console.log("index: " + index);
+        console.log("props.userUid: " + props.userUid);
+
         return (
             <RtcRemoteView.SurfaceView
                 style={{ flex: 1, margin: 1, height: cellHeight }}
@@ -61,11 +66,10 @@ const videoCallScreen = (props) => {
                             style={{ flex: 1, margin: 1 }}
                             uid={props.cameraId}
                             zOrderMediaOverlay={true}
-                        /> : <RtcLocalView.SurfaceView style={{ flex: 1, margin: 1 }} />}
+                        /> : null}
 
                     {/*Other Users*/}
-                    {props.videoUsers === undefined ? null :
-                        props.videoUsers?.length < 5 ?
+                    {props.videoUsers?.length == 1 ? <RtcLocalView.SurfaceView style={{ flex: 1, margin: 1 }} /> :
                             <FlatList
                                 data={props.videoUsers}
                                 style={{ flex: 1 }}
@@ -73,17 +77,10 @@ const videoCallScreen = (props) => {
                                 keyExtractor={(item, index) => index.toString()}
                                 numColumns={2}
                             />
-                            :
-                            <FlatList
-                                data={props.videoUsers}
-                                style={{ flex: 1 }}
-                                renderItem={renderItem}
-                                keyExtractor={(item, index) => index.toString()}
-                                numColumns={3}
-                            />
                     }
 
-                    {props.isMeetingUser ? <RtcLocalView.SurfaceView style={{ flex: 1, margin: 1 }} /> : null}
+                    {/*props.isMeetingUser ?  : null*/}
+                    
                     {/*Buttons*/}
                     <View style={styles.float}>
                         <TouchableOpacity style={{ backgroundColor: '#000000' }} onPress={props.switchCamera}>
@@ -143,6 +140,7 @@ const mapStateToProps = (state) => ({
     isMeetingUser: state.videoMeetingUser.isMeetingUser,
     cameraId: state.videoMeetingUser.cameraId,
     screenId: state.videoMeetingUser.screenId,
+    userUid: state.videoUserReducer.userUid,
 });
 
 const CustomVideoScreen = connect(mapStateToProps, params)(videoCallScreen);
