@@ -464,11 +464,11 @@ export const checkMeetingUser = (scheduleId, uid, meetingUserId) => async (dispa
             if (responseData.error == null && responseData.status == 200) {
 
                 //Doctor connection
-                if (responseData.message.data.user.id == meetingUserId){
-                    
+                if (responseData.message.data.user.id == meetingUserId) {
+
                     console.log(">>> check function uid: " + uid);
                     //Screen share 
-                    if (responseData.message.data.result == "screen"){
+                    if (responseData.message.data.result == "screen") {
                         dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, screenId: uid, isMeetingUser: true });
                     }
                     //Camera share
@@ -533,15 +533,13 @@ const setVideoInfo = (data) => async (dispatch) => {
 
         //check for doctor || meetingUser (camera && screen)
         await dispatch(checkMeetingUser(data.schedule.id, uid, data.schedule.meetingUser.id));
-        
+
         const isMeetingUser = store.getState().videoMeetingUser.isMeetingUser;
         const isScreen = store.getState().videoMeetingUser.screenId > 0;
-        
-        console.log(">>isMeetingUser: " + isMeetingUser);
-        console.log(">>isScreen: " + isScreen);
+
+        const cameraId = store.getState().videoMeetingUser.cameraId;
 
         if (!isMeetingUser) {
-            console.log("doktor olmayan geldi !!!");
             await dispatch({ type: 'NEW_VIDEO_USER', videoUsers: uid });
         }
         else {
@@ -549,31 +547,24 @@ const setVideoInfo = (data) => async (dispatch) => {
         }
 
         console.info('UserJoined', uid, elapsed);
-        const videoUsersDebug = store.getState().videoUserReducer.videoUsers;
-        console.log("videoUsersDebug Length: " + videoUsersDebug);
+
 
     });
     rtcEngine.addListener('UserOffline', async (uid, reason) => {
 
         const videoUsers = store.getState().videoUserReducer.videoUsers;
-        
+
         const isMeetingUser = store.getState().videoMeetingUser.cameraId == uid;
         const isScreen = store.getState().videoMeetingUser.screenId == uid;
-        
-        console.log(">>> isMeetingUser:"  + isMeetingUser);
-        console.log(">>> isScreen: " + isScreen);
 
         if (isScreen) {
-            console.log("screen will close....");
             await dispatch({ type: "MEETING_USER_LOAD", screenId: -1 });
-            console.log("after screen dispatch >>> reducer.cameraId: " + store.getState().videoMeetingUser.cameraId);
         }
 
         else if (!isMeetingUser) {
-            console.log("yine burda patladı !");
             var index = videoUsers?.indexOf(uid);
             if (index !== -1) {
-                await dispatch({type: "VIDEO_USER_LOAD", videoUsers: videoUsers.length == 0 ? [] : videoUsers});
+                await dispatch({ type: "VIDEO_USER_LOAD", videoUsers: videoUsers.length == 0 ? [] : videoUsers });
             }
         }
         else {
@@ -582,10 +573,10 @@ const setVideoInfo = (data) => async (dispatch) => {
         }
 
         console.info('UserOffline', uid, reason);
-        
+
         const videoUsersDebug = store.getState().videoUserReducer.videoUsers;
         console.log("videoUsersDebug Length: " + videoUsersDebug?.length);
-        
+
     });
     rtcEngine.addListener('LeaveChannel', (stats) => {
         console.info('LeaveChannel', stats);
@@ -818,7 +809,7 @@ export const videoMeetingUser = (state = { isMeetingUser: false, screenId: -1 },
                 ...state,
                 isMeetingUser: action.isMeetingUser === undefined ? state.isMeetingUser : action.isMeetingUser,
                 meetingUserId: action.meetingUserId === undefined ? state.meetingUserId : action.meetingUserId,
-                cameraId: action.cameraId === undefined ? state.meetingUserId : action.cameraId,
+                cameraId: action.cameraId === undefined ? state.cameraId : action.cameraId,
                 screenId: action.screenId === undefined ? -1 : action.screenId,
             }
         default:

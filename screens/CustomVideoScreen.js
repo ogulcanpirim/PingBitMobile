@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, SafeAreaView, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-native';
+import { View, ActivityIndicator, SafeAreaView, StyleSheet, TouchableOpacity, Text, FlatList } from 'react-native';
 import { connect } from 'react-redux';
 import { onVideoLoad, closeVideo, closeCamera, closeAudio, switchCamera } from '../services';
 import { RtcLocalView, RtcRemoteView } from 'react-native-agora';
+import { Dimensions } from 'react-native';
 
 const videoCallScreen = (props) => {
+
+    const [columns, setColumns] = useState(2);
+
+    const data = [{ key: '#4287f5' }, { key: '#fc03db' }, { key: '#990a00' }, { key: '#2ce670' }, { key: '#ebcf34' }, { key: '#a6a498' }];
 
     useEffect(() => {
         props.onVideoLoad(props.route.params.id, props);
@@ -26,6 +31,23 @@ const videoCallScreen = (props) => {
         );
     }
 
+    const renderItem = ({ item, index }) => {
+
+        let divider = 2;
+
+        if (props.videoUsers?.length > 2)
+            divider = divider * 2;
+
+        const cellHeight = Dimensions.get('window').height / divider;
+
+        return (
+            <RtcRemoteView.SurfaceView
+                style={{ flex: 1, margin: 1, height: cellHeight }}
+                uid={item}
+                zOrderMediaOverlay={true}
+            />
+        )
+    }
 
     return (
         <SafeAreaView style={{ flex: 1 }}>
@@ -36,54 +58,60 @@ const videoCallScreen = (props) => {
                     {/*MeetingUser On Top*/}
                     {props.isMeetingUser ?
                         <RtcRemoteView.SurfaceView
-                            style={{ flex: 1 }}
+                            style={{ flex: 1, margin: 1 }}
                             uid={props.cameraId}
                             zOrderMediaOverlay={true}
-                        /> : <RtcLocalView.SurfaceView style={{ flex: 1 }} />}
+                        /> : <RtcLocalView.SurfaceView style={{ flex: 1, margin: 1 }} />}
 
                     {/*Other Users*/}
+                    {props.videoUsers === undefined ? null :
+                        props.videoUsers?.length < 5 ?
+                            <FlatList
+                                data={props.videoUsers}
+                                style={{ flex: 1 }}
+                                renderItem={renderItem}
+                                keyExtractor={(item, index) => index.toString()}
+                                numColumns={2}
+                            />
+                            :
+                            <FlatList
+                                data={props.videoUsers}
+                                style={{ flex: 1 }}
+                                renderItem={renderItem}
+                                keyExtractor={(item, index) => index.toString()}
+                                numColumns={3}
+                            />
+                    }
 
-                    {props.videoUsers?.map((value, index) => (
-
-                        <RtcRemoteView.SurfaceView
-                            style={styles.container}
-                            uid={value}
-                            zOrderMediaOverlay={true}
-                        />
-
-                    ))}
-
-                    {props.isMeetingUser ? <RtcLocalView.SurfaceView style={{ flex: 1 }} /> : null}
-
-
-
+                    {props.isMeetingUser ? <RtcLocalView.SurfaceView style={{ flex: 1, margin: 1 }} /> : null}
                     {/*Buttons*/}
                     <View style={styles.float}>
-                        <TouchableOpacity style={{backgroundColor: '#000000'}} onPress={props.switchCamera}>
+                        <TouchableOpacity style={{ backgroundColor: '#000000' }} onPress={props.switchCamera}>
                             <Text style={{ fontSize: 28, color: '#ffffff' }}>SWITCH</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={{ position: 'absolute', left: 0, bottom: 0 }}>
-                        <TouchableOpacity style={{backgroundColor: '#000000'}}onPress={props.closeCamera}>
+                        <TouchableOpacity style={{ backgroundColor: '#000000' }} onPress={props.closeCamera}>
                             <Text style={{ fontSize: 28, color: '#ffffff' }}>CAMERA</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={{ position: 'absolute', right: 0, top: 0 }}>
-                        <TouchableOpacity style={{backgroundColor: '#000000'}} onPress={videoUnmount}>
+                        <TouchableOpacity style={{ backgroundColor: '#000000' }} onPress={videoUnmount}>
                             <Text style={{ fontSize: 28, color: '#ffffff' }}>CLOSE</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={{ position: 'absolute', left: 0, top: 0 }}>
-                        <TouchableOpacity style={{backgroundColor: '#000000'}} onPress={props.closeAudio}>
+                        <TouchableOpacity style={{ backgroundColor: '#000000' }} onPress={props.closeAudio}>
                             <Text style={{ fontSize: 28, color: '#ffffff' }}>{props.rtcProps.enableAudio ? "" : "UN"}MUTE</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             }
-        </SafeAreaView>
-    );
 
+        </SafeAreaView >
+    );
 };
+
 
 const ScreenShare = (props) => {
 
@@ -123,6 +151,12 @@ const CustomVideoScreen = connect(mapStateToProps, params)(videoCallScreen);
 export default CustomVideoScreen;
 
 const styles = StyleSheet.create({
+
+    gridContainer: {
+        flex: 1,
+        marginVertical: 20,
+    },
+
     container: {
         flex: 1,
         flexDirection: 'row',
