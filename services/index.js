@@ -64,7 +64,6 @@ export const onUserLogin = ({ username, password }) => async (dispatch) => {
                 "id": responseData.message.data.id,
                 "roles": responseData.message.data.roles,
             };
-
             dispatch({ type: 'DO_LOGIN', payload: userData });
             storeUserData(userData);
         }
@@ -418,6 +417,7 @@ export const uploadPicture = (image) => async (dispatch) => {
     if (Platform.OS == "ios")
         imageURI = imageURI.replace("file://", "");
 
+    
     RNFetchBlob.config({ fileCache: true, appendExt: "jpg", trusty: true })
         .fetch(
             "POST",
@@ -438,13 +438,13 @@ export const uploadPicture = (image) => async (dispatch) => {
             ],
         )
         .then((res) => {
-            //console.log("res:" + JSON.stringify(res));
+            //console.log("image chat response: " + JSON.stringify(res));
         })
         .catch((error) => console.log(error));
 
 }
 
-export const checkMeetingUser = (scheduleId, uid, meetingUserId) => async (dispatch) => {
+export const checkMeetingUser = (scheduleId, uid, meetingUserId, patientId) => async (dispatch) => {
 
     const userData = await AsyncStorage.getItem("USER_DATA");
     const userJSON = JSON.parse(userData);
@@ -467,7 +467,7 @@ export const checkMeetingUser = (scheduleId, uid, meetingUserId) => async (dispa
                 //Doctor connection
                 if (responseData.message.data.user.id == meetingUserId) {
 
-                    console.log(">>> check function uid: " + uid);
+                    console.log(">>>Doctor camera or screen connected !");
                     //Screen share 
                     if (responseData.message.data.result == "screen") {
                         dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, screenId: uid, isMeetingUser: true });
@@ -477,6 +477,12 @@ export const checkMeetingUser = (scheduleId, uid, meetingUserId) => async (dispa
                         dispatch({ type: "MEETING_USER_LOAD", meetingUserId: meetingUserId, cameraId: uid, isMeetingUser: true });
                     }
                 }
+
+                //Patient Connection
+                else if (responseData.message.data.user.id == patientId) {
+                    console.log(">>>Patient Connected !");
+                    dispatch({ type: "VIDEO_USER_LOAD", patientUID: uid });
+                }
             }
 
         }).catch(function (error) {
@@ -485,6 +491,135 @@ export const checkMeetingUser = (scheduleId, uid, meetingUserId) => async (dispa
 
 }
 
+export const getUserInfo = () => async (dispatch) => {
+
+
+    const userData = await AsyncStorage.getItem("USER_DATA");
+    const userJSON = JSON.parse(userData);
+
+
+    const getURL = "https://pingbitplatform.com/api/users/" + userJSON.id;
+
+    await RNFetchBlob.config({
+        trusty: true,
+    }).fetch('GET', getURL,
+        {
+            'Accept': 'application/json',
+            'Content-type': 'application/json',
+            'Authorization': `Bearer ${userJSON.token}`,
+        })
+        .then(function (response) {
+            const responseData = JSON.parse(response?.data);
+            if (responseData.error == null && responseData.status == 200) {
+
+                const email = responseData.message.data.userDetail.email;
+                const gsm = responseData.message.data.userDetail.gsmphone;
+                dispatch({ type: "SETTINGS_LOAD", email: email, gsm: gsm });
+            }
+
+        }).catch(function (error) {
+            console.log(error);
+        });
+}
+
+export const updateProfilePicture = (imageData) => async (dispatch) => {
+
+    
+    const image = imageData.assets[0];
+    const imageURI = image.uri;
+    console.log("imageURI: " + imageURI);
+    dispatch({ type: "PROFILE_PICTURE_LOAD", avatar: imageURI, image: image });
+
+}
+
+export const getProfilePicture = () => async (dispatch) => {
+
+    const userData = await AsyncStorage.getItem("USER_DATA");
+    const userJSON = JSON.parse(userData);
+    const avatar = "http" + (Platform.OS == "ios" ? "s" : "") + "://pingbitplatform.com/api/users/avatar/" + userJSON.id + "/?access_token=" + userJSON.token;
+    console.log("gelen avatar: " + avatar);
+    dispatch({ type: "PROFILE_PICTURE_LOAD", avatar: avatar });
+    console.log("profile dispatchedd !!");
+}
+
+export const uploadProfilePicture = () => async (dispatch) => {
+
+    const userData = await AsyncStorage.getItem("USER_DATA");
+    const userJSON = JSON.parse(userData);
+
+
+    //meetingUser
+
+    const putURL = "https://pingbitplatform.com/api/users/" + userJSON.id;
+    
+
+    const image = store.getState().profilePictureReducer.image;
+
+    let imageURI = image.uri;
+    let dataObject = null;
+
+    if (Platform.OS == "ios")
+        imageURI = imageURI.replace("file://", "");
+
+    await RNFetchBlob.config({
+        trusty: true,
+    }).fetch('GET', putURL,
+        {
+            'Accept': 'application/json',
+            'Content-type': 'application/json',
+            'Authorization': `Bearer ${userJSON.token}`,
+        })
+        .then(function (response) {
+            const responseData = JSON.parse(response?.data);
+            if (responseData.error == null && responseData.status == 200) {
+
+                dataObject = responseData.message.data;
+            }
+
+        }).catch(function (error) {
+            console.log(error);
+        });
+
+
+
+    //const dataobject = {"password":"","repassword":"","id":5,"username":"baris","roles":[{"id":4,"name":"ROLE_ADMIN"}],"userDetail":{"title":"","avatarpresent":true,"alias":"","firstname":"Barış Evren","lastname":"Eser","gender":"MALE","tcno":"33928219215","passportno":"","birthdate":"2021-04-08T00:00:00Z","birthplace":"","mothername":"","fathername":"","email":"baris.eser@biyomod.com.tr","gsmphone":"905332775811","workphone":"","homephone":"","address":"","postalcode":"","country":{"id":225,"name":"Turkey"},"city":{"id":107166,"name":"Ankara"},"language":{"id":1,"name":"Türkçe","locale":"tr"},"timezone":{"zoneName":"Europe/Istanbul","gmtOffset":10800,"gmtOffsetName":"UTC+03:00","abbreviation":"EET","tzName":"Eastern European Time"}},"userConfiguration":{"id":5,"enabled":true,"totalAllowSize":1073741824}};
+    await RNFetchBlob.config({ fileCache: true, appendExt: "jpg", trusty: true })
+        .fetch(
+            "PUT",
+            putURL,
+            {
+                'Connection': 'keep-alive',
+                "Accept": '*/*',
+                'Authorization': `Bearer ${userJSON.token}`,
+                "Content-Type": "multipart/form-data",
+            },
+            [
+                {
+                    name: "file",
+                    filename: image.fileName,
+                    type: image.type,
+                    data: RNFetchBlob.wrap(imageURI), // check for iOS
+                },
+                {
+                    name: "data",
+                    type: "application/json",
+                    data: JSON.stringify(dataObject),
+                }
+            ]
+        )
+        .then((res) => {
+            if (res.respInfo.status == 200){
+                alert("Profil resmi güncellendi !");
+            }
+            else{
+                alert("Lütfen tekrar deneyin !");
+            }
+        })
+        .catch((error) => console.log(error));
+
+
+
+}
 //Functions
 const storeUserData = async (userData) => {
     try {
@@ -525,18 +660,22 @@ const setVideoInfo = (data) => async (dispatch) => {
     await rtcEngine.setClientRole(ClientRole.Broadcaster);
 
 
+    const patientId = data.schedule.user.id;
     //Add engine listeners
     rtcEngine.addListener('JoinChannelSuccess', async (channel, uid, elapsed) => {
-        
-        //Self uid
-        await dispatch({ type: 'VIDEO_USER_LOAD', videoUsers: uid , userUid: uid});
-        console.info('JoinChannelSuccess', channel, uid, elapsed);
 
+        const userId = store.getState().userReducer.user.id;
+        //Self uid
+        await dispatch({ type: 'VIDEO_USER_LOAD', videoUsers: uid, userUid: uid, isDoctor: userId == data.schedule.meetingUser.id, isPatient: data.schedule.user.id == userId, patientUID: data.schedule.user.cameraId });
+
+        console.info('JoinChannelSuccess', channel, uid, elapsed);
+        const arr = store.getState().videoUserReducer.videoUsers;
+        console.log(JSON.stringify(arr));
     });
     rtcEngine.addListener('UserJoined', async (uid, elapsed) => {
 
         //check for doctor || meetingUser (camera && screen)
-        await dispatch(checkMeetingUser(data.schedule.id, uid, data.schedule.meetingUser.id));
+        await dispatch(checkMeetingUser(data.schedule.id, uid, data.schedule.meetingUser.id, patientId));
 
         const isMeetingUser = store.getState().videoMeetingUser.cameraId == uid;
         const isScreen = store.getState().videoMeetingUser.screenId > 0;
@@ -545,15 +684,24 @@ const setVideoInfo = (data) => async (dispatch) => {
         console.log(">>>isScreen: " + isScreen);
 
         if (!isMeetingUser) {
-            console.log("izleyici geldi !");
+            console.log(">>>izleyici or patient geldi !");
+            const arr1 = store.getState().videoUserReducer.videoUsers;
+            console.log(">>>before " + JSON.stringify(arr1));
+
             await dispatch({ type: 'NEW_VIDEO_USER', videoUsers: uid });
+
+            const arr2 = store.getState().videoUserReducer.videoUsers;
+            console.log(">>>after " + JSON.stringify(arr2));
         }
         else {
             //doctor joined (camera or screen)!
         }
 
         console.info('UserJoined', uid, elapsed);
-
+        const pid = store.getState().videoUserReducer.patientUID;
+        console.log("patientId: " + pid);
+        const isDoctor = store.getState().videoUserReducer.isDoctor;
+        console.log("isDoctor: " + isDoctor);
 
     });
     rtcEngine.addListener('UserOffline', async (uid, reason) => {
@@ -653,6 +801,8 @@ const engineUnmount = () => async () => {
     await rtcEngine?.leaveChannel();
     await rtcEngine?.destroy();
 };
+
+
 
 
 //Reducers
@@ -790,22 +940,29 @@ export const videoUserReducer = (state = {}, action) => {
         case 'VIDEO_USER_LOAD':
             return {
                 ...state,
-                videoUsers: [action.videoUsers],
+                videoUsers: action.videoUsers === undefined ? state.videoUsers : [action.videoUsers],
                 userUid: action.userUid === undefined ? state.userUid : action.userUid,
+                isDoctor: action.isDoctor === undefined ? state.isDoctor : action.isDoctor,
+                isPatient: action.isPatient === undefined ? state.isPatient : action.isPatient,
+                patientUID: action.patientUID === undefined ? state.patientUID : action.patientUID,
             }
         case 'NEW_VIDEO_USER':
-            console.log(">>>videoUsers state: " + typeof(state.videoUsers));
-            console.log(">>>videoUsers action: " + typeof(action.videoUsers));
             return {
                 ...state,
                 videoUsers: state.videoUsers === undefined ? [action.videoUsers] : [...state.videoUsers, action.videoUsers],
                 userUid: action.userUid === undefined ? state.userUid : action.userUid,
+                isDoctor: state.isDoctor,
+                isPatient: state.isPatient,
+                patientUID: state.patientUID,
             }
         case 'DEL_VIDEO_USERS':
             return {
                 ...state,
                 videoUsers: undefined,
                 userUid: action.userUid === undefined ? state.userUid : action.userUid,
+                isDoctor: false,
+                isPatient: state.isPatient,
+                patientUID: undefined,
             }
         default:
             return state;
@@ -828,8 +985,35 @@ export const videoMeetingUser = (state = { isMeetingUser: false, screenId: -1 },
     }
 }
 
+export const settingsReducer = (state = { loading: true }, action) => {
 
+    switch (action.type) {
+        case 'SETTINGS_LOAD':
+            return {
+                ...state,
+                email: action.email,
+                gsm: action.gsm,
+                loading: false,
+            }
+        default:
+            return state;
+    }
+}
 
+export const profilePictureReducer = (state = { loading: true }, action) => {
+
+    switch (action.type) {
+        case 'PROFILE_PICTURE_LOAD':
+            return {
+                ...state,
+                avatar: action.avatar,
+                image: action.image === undefined ? state.image : action.image,
+                loading: false,
+            }
+        default:
+            return state;
+    }
+}
 
 //Root reducer
 export const rootReducer = combineReducers({
@@ -840,6 +1024,8 @@ export const rootReducer = combineReducers({
     videoReducer: videoReducer,
     videoUserReducer: videoUserReducer,
     videoMeetingUser: videoMeetingUser,
+    settingsReducer: settingsReducer,
+    profilePictureReducer: profilePictureReducer,
 });
 
 //Store

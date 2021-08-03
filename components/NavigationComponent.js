@@ -4,18 +4,20 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import IonicIcon from 'react-native-vector-icons/Ionicons';
+
 //import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 //Screens
 import HomeScreen from '../screens/HomeScreen';
 import ScheduleScreen from '../screens/ScheduleScreen';
 import ChatScreen from '../screens/ChatScreen';
-import VideoCallScreen from '../screens/VideoCallScreen';
 import CustomVideoScreen from '../screens/CustomVideoScreen';
-
+import SettingsScreen from '../screens/SettingsScreen';
+import ProfilePictureScreen from '../screens/ProfilePictureScreen';
+import UserDocumentScreen from '../screens/UserDocumentScreen';
 
 const Stack = createStackNavigator();
-
+const SettingsStack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
 
@@ -30,6 +32,19 @@ function ScheduleStackScreen() {
     return (
         <Stack.Navigator>
             <Stack.Screen name="Schedules" component={ScheduleScreen}></Stack.Screen>
+        </Stack.Navigator>
+    );
+}
+
+function SettingsStackScreen() {
+    return (
+        <Stack.Navigator>
+            <Stack.Screen
+                name="Setting"
+                component={SettingsScreen}
+            />
+            <Stack.Screen name="UserDocument" component={UserDocumentScreen}/>
+            <Stack.Screen name="ProfilePicture" component={ProfilePictureScreen}/>
         </Stack.Navigator>
     );
 }
@@ -49,10 +64,8 @@ const MyStack = (props) => {
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="VideoCall" options={{ headerShown: false }} component={CustomVideoScreen} />
         </Stack.Navigator>
-    )
+    );
 }
-
-
 
 
 
@@ -68,16 +81,20 @@ function BottomNavigator() {
                         iconName = focused ? 'home' : 'home-outline';
                     } else if (route.name == 'Schedule') {
                         iconName = focused ? 'person' : 'person-outline';
+                    } else if (route.name == 'Settings') {
+                        iconName = focused ? 'settings' : 'settings-outline';
                     }
+
                     return (
-                        <>
-                            <IonicIcon name={iconName} size={size} color={color} style={{ paddingBottom: padding }}></IonicIcon>
-                        </>
+                        <IonicIcon name={iconName} size={size} color={color} style={{ paddingBottom: padding }}></IonicIcon>
+
                     );
                 },
             })}>
             <Tab.Screen name="Home" component={HomeStackScreen} />
             <Tab.Screen name="Schedule" component={ScheduleStackScreen} />
+            <Tab.Screen name="Settings" component={SettingsStackScreen} />
+            
         </Tab.Navigator>
     );
 }

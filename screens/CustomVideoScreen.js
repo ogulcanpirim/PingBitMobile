@@ -7,7 +7,7 @@ import { Dimensions } from 'react-native';
 
 const videoCallScreen = (props) => {
 
-    const [self, setSelf] = useState(false);
+    const [upper, setUpper] = useState(false);
 
     const data = [{ key: '#4287f5' }, { key: '#fc03db' }, { key: '#990a00' }, { key: '#2ce670' }, { key: '#ebcf34' }, { key: '#a6a498' }];
 
@@ -44,7 +44,30 @@ const videoCallScreen = (props) => {
 
         console.log("index: " + index);
         console.log("props.userUid: " + props.userUid);
+        
+        if (!props.isPatient && (props.videoUsers?.includes(props.patientUID) && item == props.patientUID))
+        {
+            return null;
+        }
 
+        //only self
+        if (index == 0 && !upper && props.videoUsers?.length == 1){
+
+            console.log("surface view ???");
+            return (
+                <RtcLocalView.SurfaceView
+                    style={{ flex: 1, margin: 1, height: Dimensions.get('window').height}}>
+                </RtcLocalView.SurfaceView>
+            )
+        }
+        else if (index == 0){
+            return (
+                <RtcLocalView.SurfaceView
+                    style={{ flex: 1, margin: 1, height: cellHeight}}>
+                </RtcLocalView.SurfaceView>
+            )
+        }
+        
         return (
             <RtcRemoteView.SurfaceView
                 style={{ flex: 1, margin: 1, height: cellHeight }}
@@ -54,33 +77,68 @@ const videoCallScreen = (props) => {
         )
     }
 
+    const Doctor = (props) => {
+
+        
+        return (
+            <View style={{ flex: 1 }}>
+                <RtcRemoteView.SurfaceView
+                    style={{ flex: 1 }}
+                    uid={props.cameraId}
+                    zOrderMediaOverlay={true}
+                />
+            </View>);
+    }
+
+    const Patient = (props) => {
+
+        return (
+            <View style={{ flex: 1 }}>
+                <RtcRemoteView.SurfaceView
+                    style={{ flex: 1 }}
+                    uid={props.patientUID}
+                    zOrderMediaOverlay={true}
+                />
+            </View>);
+    }
+
+    const Upper = (props) => {
+        setUpper(props.set);
+        return null;
+    }
+
     return (
         <SafeAreaView style={{ flex: 1 }}>
 
             {props.screenId > 0 ? <ScreenShare screenId={props.screenId} ></ScreenShare> :
                 <View style={{ flex: 1 }}>
 
-                    {/*MeetingUser On Top*/}
-                    {props.isMeetingUser ?
-                        <RtcRemoteView.SurfaceView
-                            style={{ flex: 1, margin: 1 }}
-                            uid={props.cameraId}
-                            zOrderMediaOverlay={true}
-                        /> : null}
 
-                    {/*Other Users*/}
-                    {props.videoUsers?.length == 1 ? <RtcLocalView.SurfaceView style={{ flex: 1, margin: 1 }} /> :
-                            <FlatList
-                                data={props.videoUsers}
-                                style={{ flex: 1 }}
-                                renderItem={renderItem}
-                                keyExtractor={(item, index) => index.toString()}
-                                numColumns={2}
-                            />
+                    {/*isDoctor && isMeetingUser*/}
+
+                    {props.isPatient ?
+                        (props.isMeetingUser ? <Doctor cameraId={props.cameraId}></Doctor> : <Upper set = {false}></Upper>) :
+                        (props.videoUsers?.includes(props.patientUID) ? <Patient patientUID={props.patientUID}></Patient> : <Upper set ={false}></Upper>)
                     }
 
-                    {/*props.isMeetingUser ?  : null*/}
+                    {console.log("props.isMeetingUser => " + props.isMeetingUser + "props.isPatient===>" + props.isPatient +  "\nprops.isDoctor: " + props.isDoctor + "\nprops.patientUID" + JSON.stringify(props.patientUID) + "\nincludes? " + props.videoUsers?.includes(props.patientUID))}
                     
+                    
+                    {/*MeetingUser On Top*/}
+
+                    {/*Other Users*/}
+                    { <FlatList
+                        data={props.videoUsers}
+                        style={{ flex: 1 }}
+                        renderItem={renderItem}
+                        keyExtractor={(item, index) => index.toString()}
+                        numColumns={2}
+                    />}
+
+
+
+                    {/*props.isMeetingUser ?  : null*/}
+
                     {/*Buttons*/}
                     <View style={styles.float}>
                         <TouchableOpacity style={{ backgroundColor: '#000000' }} onPress={props.switchCamera}>
@@ -141,6 +199,9 @@ const mapStateToProps = (state) => ({
     cameraId: state.videoMeetingUser.cameraId,
     screenId: state.videoMeetingUser.screenId,
     userUid: state.videoUserReducer.userUid,
+    isDoctor: state.videoUserReducer.isDoctor,
+    isPatient: state.videoUserReducer.isPatient,
+    patientUID: state.videoUserReducer.patientUID,
 });
 
 const CustomVideoScreen = connect(mapStateToProps, params)(videoCallScreen);
